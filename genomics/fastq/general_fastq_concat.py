@@ -137,9 +137,9 @@ for (group_key, read), groupinfo in groups.items():
     slurm_script = f"""#!/bin/bash
 #SBATCH --job-name=cat_{str(group_key).replace('.','_')}_{read}
 #SBATCH --output={os.path.join(args.outdir, 'slurmlogs', out_base)}.slurm.out
-#SBATCH --mem=8G
+#SBATCH --mem=12G
 #SBATCH --cpus-per-task=1
-#SBATCH --time=04:00:00
+#SBATCH --time=02:00:00
 
 set -euo pipefail
 echo "Concatenating to {out_path}"
