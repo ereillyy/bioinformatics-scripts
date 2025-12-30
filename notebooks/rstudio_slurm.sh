@@ -44,6 +44,12 @@ provider=sqlite
 directory=${RSTUDIO_TMP}/var/lib
 EOF
 
+# Create rsession config to set initial working directory
+cat > "${RSTUDIO_TMP}/rsession.conf" <<EOF
+session-default-working-dir=${PROJECT_ROOT}
+session-default-new-project-dir=${PROJECT_ROOT}
+EOF
+
 echo "Starting RStudio Server..."
 
 # Get the hostname and port
@@ -73,6 +79,7 @@ singularity exec \
     --bind ${RSTUDIO_TMP}/var/run:/var/run/rstudio-server \
     --bind ${RSTUDIO_TMP}/tmp:/tmp \
     --bind ${RSTUDIO_TMP}/database.conf:/etc/rstudio/database.conf \
+    --bind ${RSTUDIO_TMP}/rsession.conf:/etc/rstudio/rsession.conf \
     ${CONTAINER} \
     bash -c "rserver \
         --server-daemonize 0 \
