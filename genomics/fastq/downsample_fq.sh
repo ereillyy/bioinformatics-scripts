@@ -27,12 +27,25 @@ if [ "$submit_slurm" = true ]; then
         fi
     done
     
+    # Get output directory from output pattern
+    output_pattern="$2"
+    output_pattern="${output_pattern%.gz}"
+    output_dir=$(dirname "$output_pattern")
+    
+    # Create slurmlogs directory if it doesn't exist
+    slurm_log_dir="${output_dir}/slurmlogs"
+    mkdir -p "$slurm_log_dir"
+    
     echo "Submitting to SLURM..."
-    sbatch --partition=epyc --mem=8G --cpus-per-task=2 --time=2:00:00 --wrap="bash $0 ${args[*]}"
+    echo "SLURM logs will be written to: $slurm_log_dir"
+    sbatch --partition=epyc --mem=60G --cpus-per-task=2 --time=2:00:00 \
+           --output="${slurm_log_dir}/downsample_%j.out" \
+           --error="${slurm_log_dir}/downsample_%j.err" \
+           --wrap="bash $0 ${args[*]}"
     exit 0
 fi
 
-echo "Starting downsample_fq.sh"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting downsample_fq.sh"
 
 # check if correct number of arguments provided
 if [ "$#" -lt 3 ]; then
@@ -97,8 +110,8 @@ fi
 
 # downsample the files
 # keep same seed=100 to maintain pairing
-echo -e "\nDownsampling r1... \n\t running seqtk sample -s100 $input_r1 $reads > $output_r1"
-echo -e "Downsampling r2... \n\t running seqtk sample -s100 $input_r2 $reads > $output_r2"
+echo -e "\n[$(date '+%Y-%m-%d %H:%M:%S')] Downsampling r1... \n\t running seqtk sample -s100 $input_r1 $reads > $output_r1"
+echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] Downsampling r2... \n\t running seqtk sample -s100 $input_r2 $reads > $output_r2"
 
 # run seqtk commands in parallel and capture exit codes
 seqtk sample -s100 "$input_r1" "$reads" > "$output_r1" &
@@ -122,10 +135,10 @@ if [ $exit2 -ne 0 ]; then
     exit 1
 fi
 
-echo "Downsampling completed successfully"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Downsampling completed successfully"
 
 # zip the output files
-echo -e "\nCompressing output files... \n\t running gzip $output_r1 and $output_r2"
+echo -e "\n[$(date '+%Y-%m-%d %H:%M:%S')] Compressing output files... \n\t running gzip $output_r1 and $output_r2"
 gzip "$output_r1" &
 pid1=$!
 gzip "$output_r2" &
@@ -147,4 +160,4 @@ if [ $exit2 -ne 0 ]; then
     exit 1
 fi
 
-echo -e "\nDone downsampling to $reads reads."
+echo -e "\n[$(date '+%Y-%m-%d %H:%M:%S')] Done downsampling to $reads reads."
