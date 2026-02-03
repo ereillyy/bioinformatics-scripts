@@ -10,8 +10,14 @@
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
 
-PROJECT_ROOT="/mnt/scratchc/sjlab/ereilly"
-ENV_NAME="jupyter1"
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/config.sh" ]; then
+    source "$SCRIPT_DIR/config.sh"
+else
+    echo "Error: config.sh not found. Please copy config.sh.example to config.sh and configure it."
+    exit 1
+fi
 
 # Create logs directory in PROJECT_ROOT
 mkdir -p "$PROJECT_ROOT/logs"
@@ -54,7 +60,7 @@ fi
 echo "=============================================================="
 echo "JUPYTER IS RUNNING ON (remote): $(hostname):$PORT"
 echo "From your LAPTOP, run this SSH tunnel:"
-echo "ssh -J reilly01@clust1-sub-1.cri.camres.org reilly01@$(hostname) -L $PORT:localhost:$PORT"
+echo "ssh -J ${REMOTE_USER}@${JUMP_HOST} ${REMOTE_USER}@$(hostname) -L $PORT:localhost:$PORT"
 echo ""
 if [ -n "$URL" ]; then
   echo "Then open in your browser:"

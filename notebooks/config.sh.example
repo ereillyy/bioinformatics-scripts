@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Configuration Template
+# Copy this file to config.sh and fill in your actual values
+
+# Project root directory (where your conda environments and containers are stored)
+PROJECT_ROOT="/path/to/your/project/root"
+
+# Conda environment name for Jupyter
+ENV_NAME="your_jupyter_env"
+
+# Singularity container path for RStudio
+CONTAINER="/path/to/your/rstudio.sif"
+
+# Remote username for SSH connection
+REMOTE_USER="your_username"
+
+# Jump host/login node hostname
+JUMP_HOST="your.login.node.hostname"

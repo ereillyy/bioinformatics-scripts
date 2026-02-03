@@ -4,14 +4,20 @@
 #
 #SBATCH --job-name=rstudio
 #SBATCH --partition=epyc
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=100G
-#SBATCH --time=48:00:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=20G
+#SBATCH --time=72:00:00
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
 
-PROJECT_ROOT="/mnt/scratchc/sjlab/ereilly"
-CONTAINER="/mnt/scratchc/sjlab/ereilly/containers/bioconductor_3.18.sif"
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/config.sh" ]; then
+    source "$SCRIPT_DIR/config.sh"
+else
+    echo "Error: config.sh not found. Please copy config.sh.example to config.sh and configure it."
+    exit 1
+fi
 
 mkdir -p logs
 cd "$PROJECT_ROOT"
@@ -30,7 +36,7 @@ if [ ! -f "$CONTAINER" ]; then
 fi
 
 # Pick a port
-PORT=8788
+PORT=8778
 
 # Create temporary directory for RStudio Server
 export RSTUDIO_TMP="${PROJECT_ROOT}/tmp/rstudio-${SLURM_JOB_ID}"
@@ -59,7 +65,7 @@ echo "=============================================================="
 echo "RSTUDIO SERVER IS RUNNING ON (remote): ${HOSTNAME}:${PORT}"
 echo ""
 echo "From your LAPTOP, run this SSH tunnel:"
-echo "ssh -J reilly01@clust1-sub-1.cri.camres.org reilly01@${HOSTNAME} -L ${PORT}:localhost:${PORT}"
+echo "ssh -J ${REMOTE_USER}@${JUMP_HOST} ${REMOTE_USER}@${HOSTNAME} -L ${PORT}:localhost:${PORT}"
 echo ""
 echo "Then open in your browser:"
 echo "   http://localhost:${PORT}"

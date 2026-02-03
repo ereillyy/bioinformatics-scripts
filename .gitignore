@@ -1,0 +1,10 @@
+# Configuration files with sensitive information
+notebooks/config.sh
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+.ipynb_checkpoints/
