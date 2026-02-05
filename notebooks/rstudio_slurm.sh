@@ -10,12 +10,22 @@
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
 
+# Get the directory where this script is located with scontrol when run via sbatch (for the config file)
+if [ -n "$SLURM_JOB_ID" ]; then
+    # Extract script path from SLURM job info
+    SCRIPT_PATH=$(scontrol show job "$SLURM_JOB_ID" | grep -oP 'Command=\K[^ ]+' | head -1)
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+else
+    # When run directly (not via sbatch)
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
 # Load configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$SCRIPT_DIR/config.sh" ]; then
     source "$SCRIPT_DIR/config.sh"
 else
-    echo "Error: config.sh not found. Please copy config.sh.example to config.sh and configure it."
+    echo "Error: config.sh not found at: $SCRIPT_DIR/config.sh"
+    echo "Please copy config.sh.example to config.sh and configure it."
     exit 1
 fi
 
@@ -27,6 +37,7 @@ echo "Job ID:        $SLURM_JOB_ID"
 echo "Node:          $(hostname)"
 echo "Start time:    $(date)"
 echo "Work dir:      $PROJECT_ROOT"
+echo "Script dir:    $SCRIPT_DIR"
 echo "Container:     $CONTAINER"
 
 # Check if container exists
