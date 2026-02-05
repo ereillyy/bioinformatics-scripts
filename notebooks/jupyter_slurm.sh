@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# USAGE: sbatch jupyter_slurm.sh
+# USAGE: sbatch bioinformatics-scripts/notebooks/jupyter_slurm.sh
 #
 #SBATCH --job-name=jupyter
 #SBATCH --partition=epyc
@@ -10,12 +10,22 @@
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
 
-# Load configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the directory where this script is located with scontrol when run via sbatch (for the config file)
+if [ -n "$SLURM_JOB_ID" ]; then
+    # Extract script path from SLURM job info
+    SCRIPT_PATH=$(scontrol show job "$SLURM_JOB_ID" | grep -oP 'Command=\K[^ ]+' | head -1)
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+else
+    # When run directly (not via sbatch)
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
+# Load configuration from script directory
 if [ -f "$SCRIPT_DIR/config.sh" ]; then
     source "$SCRIPT_DIR/config.sh"
 else
-    echo "Error: config.sh not found. Please copy config.sh.example to config.sh and configure it."
+    echo "Error: config.sh not found at: $SCRIPT_DIR/config.sh"
+    echo "Please copy config.sh.example to config.sh and configure it."
     exit 1
 fi
 
@@ -32,6 +42,7 @@ echo "Job ID:        $SLURM_JOB_ID"
 echo "Node:          $(hostname)"
 echo "Start time:    $(date)"
 echo "Work dir:      $PROJECT_ROOT"
+echo "Script dir:    $SCRIPT_DIR"
 echo "Conda env:     $ENV_NAME"
 which python
 python --version
