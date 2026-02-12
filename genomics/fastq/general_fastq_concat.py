@@ -4,13 +4,14 @@
 Concatenate files by either:
 - exact filename match (from different directories), or
 - prefix grouping (automatically extracts prefix as everything before R1/R2 pattern),
-keeping R1/R2 separate and submitting each concat as a Slurm job.
+keeping R1/R2 separate and submitting each concat as a Slurm job or running locally.
 
 - Output filenames are constructed from the group key and detected read, with configurable formatting.
 - Supports a --dry-run mode.
+- Supports a --local mode for running without Slurm.
 
 Usage:
-    python general_concat.py "<input_glob>" <outdir> --group-mode {exact,prefix} [--read-style {r,R,r_,R_}] [--dry-run]
+    python general_concat.py "<input_glob>" <outdir> --group-mode {exact,prefix} [--read-style {r,R,r_,R_}] [--dry-run] [--local] [--parallel N]
 
 Arguments:
     <input_glob>        Glob pattern for input files (in quotes)
@@ -18,6 +19,8 @@ Arguments:
     --group-mode        'exact' (by filename) or 'prefix' (auto-detect prefix before R1/R2, default: exact)
     --read-style        Output read style: 'r' (default, e.g. r1), 'R' (R1), 'r_' (r_1), 'R_' (R_1)
     --dry-run           Only print planned actions, do not submit jobs
+    --local             Run locally instead of via Slurm
+    --parallel          Number of parallel jobs when using --local (default: 4)
 """
 
 import os
@@ -27,6 +30,8 @@ import argparse
 from collections import defaultdict
 import subprocess
 import re
+import time
+from multiprocessing import Pool
 
 def detect_read(filename):
     # Detects R1/R2/r1/r2/R_1/r_1 etc, returns (read, prefix)
@@ -52,12 +57,29 @@ def format_read(read, style):
     else:
         raise ValueError(f"Unknown read style: {style}")
 
-parser = argparse.ArgumentParser(description="Concatenate files by exact name or prefix, submit to Slurm.")
+def run_concat_local(task):
+    """Run a single concatenation task locally."""
+    out_path, files, out_base = task
+    files_str = " ".join(sorted(files))
+    cmd = f"cat {files_str} > {out_path}"
+    
+    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Starting: {out_base}")
+    try:
+        subprocess.run(cmd, shell=True, check=True)
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Finished: {out_base}")
+        return (True, out_base)
+    except subprocess.CalledProcessError as e:
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] FAILED: {out_base} - {e}")
+        return (False, out_base)
+
+parser = argparse.ArgumentParser(description="Concatenate files by exact name or prefix, submit to Slurm or run locally.")
 parser.add_argument("input_glob", help="Glob pattern for input files (in quotes)")
 parser.add_argument("outdir", help="Output directory")
 parser.add_argument("--group-mode", choices=['exact', 'prefix'], default='exact', help="Group by exact filename or auto-detected prefix before R1/R2 (default: exact)")
 parser.add_argument("--read-style", choices=['r', 'R', 'r_', 'R_'], default='r', help="Output read style (default: r, e.g. r1)")
 parser.add_argument("--dry-run", action="store_true", help="Show planned actions, do not submit jobs")
+parser.add_argument("--local", action="store_true", help="Run locally instead of via Slurm")
+parser.add_argument("--parallel", type=int, default=4, help="Number of parallel jobs when using --local (default: 4)")
 args = parser.parse_args()
 
 input_files = glob.glob(args.input_glob)
@@ -111,10 +133,18 @@ if not os.path.exists(args.outdir):
     if not args.dry_run:
         os.makedirs(args.outdir, exist_ok=True)
 
+# Prepare slurmlogs directory if not in local mode
+if not args.local and not args.dry_run:
+    slurmlogs_dir = os.path.join(args.outdir, 'slurmlogs')
+    os.makedirs(slurmlogs_dir, exist_ok=True)
+
 # For dry-run, collect summary and show only first example
+# For local mode, collect tasks to run in parallel
 shown_example = False
 single_file_groups = []
 concat_count = 0
+tasks = []
+
 for idx, ((group_key, read), groupinfo) in enumerate(groups.items(), 1):
     files = groupinfo["files"]
     
@@ -145,7 +175,7 @@ for idx, ((group_key, read), groupinfo) in enumerate(groups.items(), 1):
 #SBATCH --output={os.path.join(args.outdir, 'slurmlogs', out_base)}.slurm.out
 #SBATCH --mem=12G
 #SBATCH --cpus-per-task=1
-#SBATCH --time=02:00:00
+#SBATCH --time=00:15:00
 
 set -euo pipefail
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting concatenation"
@@ -159,15 +189,39 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] Finished concatenation"
             print(f"\n[Example Slurm script for first group:]")
             print(slurm_script)
             shown_example = True
+    elif args.local:
+        # Collect tasks for local execution
+        tasks.append((out_path, files, out_base))
     else:
+        # Slurm submission
         import tempfile
         with tempfile.NamedTemporaryFile("w", delete=False, suffix=".sh") as tf:
             tf.write(slurm_script)
             tf.flush()
             subprocess.run(["sbatch", tf.name])
 
+# Execute local tasks if in local mode
+if args.local and not args.dry_run and tasks:
+    print(f"\nRunning {len(tasks)} concatenations locally with {args.parallel} parallel jobs...")
+    
+    with Pool(processes=args.parallel) as pool:
+        results = pool.map(run_concat_local, tasks)
+    
+    successful = sum(1 for success, _ in results if success)
+    failed = len(results) - successful
+    print(f"\nCompleted: {successful} successful, {failed} failed")
+    
+    if failed > 0:
+        print("\nFailed concatenations:")
+        for success, out_base in results:
+            if not success:
+                print(f"  - {out_base}")
+
 if args.dry_run:
-    print(f"\n[DRY RUN] Would submit {concat_count} Slurm jobs total.")
+    mode_str = "locally" if args.local else "Slurm jobs"
+    print(f"\n[DRY RUN] Would submit {concat_count} {mode_str} total.")
+elif args.local:
+    print(f"\nCompleted {concat_count} concatenations locally.")
 else:
     print(f"\nSubmitted {concat_count} Slurm jobs total.")
 
