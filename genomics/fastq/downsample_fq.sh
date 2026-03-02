@@ -36,9 +36,11 @@ if [ "$submit_slurm" = true ]; then
     slurm_log_dir="${output_dir}/slurmlogs"
     mkdir -p "$slurm_log_dir"
     
+    # 200G and 8h needed for 250M reads
+    # 60G and 2h is completely fine for mst < 100M reads
     echo "Submitting to SLURM..."
     echo "SLURM logs will be written to: $slurm_log_dir"
-    sbatch --partition=epyc --mem=60G --cpus-per-task=2 --time=2:00:00 \
+    sbatch --partition=rocm --mem=400G --cpus-per-task=2 --time=16:00:00 \
            --output="${slurm_log_dir}/downsample_%j.out" \
            --error="${slurm_log_dir}/downsample_%j.err" \
            --wrap="bash $0 ${args[*]}"
@@ -111,25 +113,16 @@ fi
 # downsample the files
 # keep same seed=100 to maintain pairing
 echo -e "\n[$(date '+%Y-%m-%d %H:%M:%S')] Downsampling r1... \n\t running seqtk sample -s100 $input_r1 $reads > $output_r1"
-echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] Downsampling r2... \n\t running seqtk sample -s100 $input_r2 $reads > $output_r2"
-
-# run seqtk commands in parallel and capture exit codes
-seqtk sample -s100 "$input_r1" "$reads" > "$output_r1" &
-pid1=$!
-seqtk sample -s100 "$input_r2" "$reads" > "$output_r2" &
-pid2=$!
-
-# wait for both processes and check their exit codes
-wait $pid1
+seqtk sample -s100 "$input_r1" "$reads" > "$output_r1"
 exit1=$?
-wait $pid2
-exit2=$?
-
 if [ $exit1 -ne 0 ]; then
     echo "Error: seqtk failed for R1 with exit code $exit1"
     exit 1
 fi
 
+echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] Downsampling r2... \n\t running seqtk sample -s100 $input_r2 $reads > $output_r2"
+seqtk sample -s100 "$input_r2" "$reads" > "$output_r2"
+exit2=$?
 if [ $exit2 -ne 0 ]; then
     echo "Error: seqtk failed for R2 with exit code $exit2"
     exit 1
