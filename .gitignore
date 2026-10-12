@@ -8,3 +8,4 @@ logs/
 # Temporary files
 *.tmp
 .ipynb_checkpoints/
+*.pyc
