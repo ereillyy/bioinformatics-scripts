@@ -62,6 +62,11 @@ STANDARD_COLORS = {
     'TC>NN': '#E770A0',
     'TG>NN': '#B0DD8B',
     'TT>NN': '#36A12E',
+
+    'CT>NN': '#FF3691', # pink - cisplatin-associated DBS
+    'TC>NN': '#E83184', # pink - cisplatin-associated DBS
+
+    
     
     # ID colors
     'DEL_C': '#FDBE6F',   # orange (C deletions)
