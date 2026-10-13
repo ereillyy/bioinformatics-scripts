@@ -189,8 +189,10 @@ def plot_stacked_signatures(
     Plot mutation signatures as stacked bar charts, normalized by coverage.
     
     Args:
-        matrix_path: Path to mutation matrix file (e.g., sigpro.SBS6.all)
-        coverage_path: Path to coverage summary CSV (required)
+        matrix_path: Path to mutation matrix file (e.g., sigpro.SBS6.all), or a DataFrame
+                     (index MutationType, one column per sample)
+        coverage_path: Path to coverage summary CSV (required), or a DataFrame indexed by
+                     sample with a 'total_coverage' or 'effective_coverage' column
         samples: List of sample names to plot (if None, uses all samples in matrix)
         mutation_types: List of mutation types to include (if None, uses all types)
         background_subtraction: Dict mapping sample->background (e.g., {'treated': 'control'})
@@ -199,7 +201,7 @@ def plot_stacked_signatures(
         save_path: Path to save the figure
         show_plot: Whether to display the plot
         show_legend: Whether to show legend
-        title: Plot title (if None, inferred from matrix filename)
+        title: Plot title if given
         ylabel: Y-axis label (if None, defaults to 'Mutations per billion bases')
         show_stack_labels: Whether to show labels on each stack segment
         stack_label_threshold: Minimum proportion of total height to show label (default 0.02 = 2%)
@@ -209,8 +211,14 @@ def plot_stacked_signatures(
         tuple: (fig, ax) matplotlib objects
     """
     # Read mutation matrix
-    print(f"[INFO] Reading mutation matrix from {matrix_path}")
-    matrix_df = pd.read_csv(matrix_path, sep='\t', index_col='MutationType')
+    if isinstance(matrix_path, pd.DataFrame):
+        print("[INFO] Using the mutation matrix passed as a DataFrame")
+        matrix_df = matrix_path.copy()
+        matrix_type = {6: 'SBS6', 24: 'SBS24', 96: 'SBS96', 384: 'SBS384', 1536: 'SBS1536'}.get(len(matrix_df), 'Mutation')
+    else:
+        print(f"[INFO] Reading mutation matrix from {matrix_path}")
+        matrix_df = pd.read_csv(matrix_path, sep='\t', index_col='MutationType')
+        matrix_type = os.path.basename(matrix_path).split('.')[1]
     
     # Filter mutation types if specified
     if mutation_types is not None:
@@ -259,8 +267,12 @@ def plot_stacked_signatures(
     plot_data = matrix_df[samples].copy()
     
     # Normalize by coverage (always)
-    print(f"[INFO] Reading coverage from {coverage_path}")
-    coverage_df = pd.read_csv(coverage_path, index_col='sample')
+    if isinstance(coverage_path, pd.DataFrame):
+        print("[INFO] Using the coverage passed as a DataFrame")
+        coverage_df = coverage_path
+    else:
+        print(f"[INFO] Reading coverage from {coverage_path}")
+        coverage_df = pd.read_csv(coverage_path, index_col='sample')
     
     print(f"[INFO] Normalizing by coverage (per billion bases)")
     for sample in samples:
@@ -347,12 +359,6 @@ def plot_stacked_signatures(
     # Add title
     if title:
         ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
-    else:
-        matrix_type = os.path.basename(matrix_path).split('.')[1]
-        title_text = f'{matrix_type} Mutation Signatures'
-        if background_subtraction:
-            title_text += ' (delta)'
-        ax.set_title(title_text, fontsize=16, fontweight='bold', pad=20)
     
     # Add legend
     if show_legend and len(mutation_type_list) <= 30:
