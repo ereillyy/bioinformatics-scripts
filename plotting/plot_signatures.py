@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgb
 
 
 # ===========================================================================
@@ -345,22 +346,24 @@ def plot_mutational_signatures(
         if ymin < 0:
             ax.axhline(0, color='black', linewidth=0.8, zorder=3)
 
-        # coloured strip + short group labels above the plot
-        strip_y = ymax * 1.05
-        strip_h = ymax * 0.04
+        # coloured strip + short group labels above the plot. Drawn in axes coordinates (x in data, y as a fraction
+        # of the axes height) so the strip is the same size whatever the y-range, including negative values.
+        strip_y, strip_h = 1.03, 0.11
+        label_fontsize = ax.yaxis.label.get_size()
         for start, size, color, glabel in group_positions:
             ax.add_patch(plt.Rectangle(
                 (start - 0.5, strip_y), size, strip_h,
-                color=color, clip_on=False, transform=ax.transData
+                color=color, clip_on=False, transform=ax.get_xaxis_transform()
             ))
-            label_fontsize = 9 if size >= 2 else 7
+            r, g, b = to_rgb(color)
+            text_color = 'white' if 0.299 * r + 0.587 * g + 0.114 * b < 0.5 else 'black'      # white on dark colours
             ax.text(start + size / 2 - 0.5, strip_y + strip_h * 0.5, glabel,
-                    ha='center', va='center', fontsize=label_fontsize, fontweight='bold',
-                    transform=ax.transData)
+                    ha='center', va='center', fontsize=label_fontsize, fontweight='bold', color=text_color,
+                    transform=ax.get_xaxis_transform())
 
         # Broader category header spanning several groups (ID83 only).
         if supergroups:
-            header_y = strip_y + strip_h * 2.2
+            header_y = strip_y + strip_h + 0.04
             gi = 0
             for slabel, n_spanned in supergroups:
                 spanned = group_positions[gi:gi + n_spanned]
@@ -368,13 +371,13 @@ def plot_mutational_signatures(
                 swidth = sum(size for _, size, _, _ in spanned)
                 ax.text(sstart + swidth / 2 - 0.5, header_y, slabel,
                         ha='center', va='bottom', fontsize=10, fontweight='bold',
-                        transform=ax.transData)
+                        transform=ax.get_xaxis_transform())
                 gi += n_spanned
         ax.set_ylim(ymin, ymax)
 
         # Title sits above the strip (and, for ID83, the extra header row
         # above it), not overlapping them.
-        title_pad = 60 if supergroups else 40
+        title_pad = 70 if supergroups else 48
         ax.set_title(col, fontsize=12, fontweight='bold', pad=title_pad)
 
         fig.tight_layout()
