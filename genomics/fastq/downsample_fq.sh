@@ -40,7 +40,7 @@ if [ "$submit_slurm" = true ]; then
     # 60G and 2h is completely fine for mst < 100M reads
     echo "Submitting to SLURM..."
     echo "SLURM logs will be written to: $slurm_log_dir"
-    sbatch --partition=rocm --mem=400G --cpus-per-task=2 --time=16:00:00 \
+    sbatch --partition=epyc --mem=400G --cpus-per-task=2 --time=100:00:00 \
            --output="${slurm_log_dir}/downsample_%j.out" \
            --error="${slurm_log_dir}/downsample_%j.err" \
            --wrap="bash $0 ${args[*]}"
