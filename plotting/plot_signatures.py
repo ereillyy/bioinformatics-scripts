@@ -144,19 +144,27 @@ _DEFAULT_FIGSIZE = {
 # ===========================================================================
 
 def _check_counts(df):
+    """Reject input that looks like proportions or percentages (non-integer columns summing to 1 or 100) or is negative.
+    Any other counts are accepted, including non-integer (context-normalised) ones."""
     for col in df.columns:
         values = df[col].values
-        if np.any(values < 0) or not np.all(np.isclose(values, np.round(values))):
+        total = values.sum()
+        if np.any(values < 0):
+            raise ValueError(f"Column '{col}' has negative values; expected non-negative counts.")
+        if not np.all(np.isclose(values, np.round(values))) and (np.isclose(total, 1) or np.isclose(total, 100)):
             raise ValueError(
-                f"Column '{col}' does not look like raw counts (expected "
-                f"non-negative integers). Pass proportion=True if this data "
-                f"is already normalized."
+                f"Column '{col}' looks like proportions or percentages (sums to {total:g}); "
+                f"expected counts. Pass proportion=True if this data is already normalized."
             )
 
 
 def _normalize_to_coverage(df, coverage_path):
-    print(f"[INFO] Reading coverage from {coverage_path}")
-    coverage_df = pd.read_csv(coverage_path, index_col='sample')
+    if isinstance(coverage_path, pd.DataFrame):
+        print("[INFO] Using the coverage passed as a DataFrame")
+        coverage_df = coverage_path
+    else:
+        print(f"[INFO] Reading coverage from {coverage_path}")
+        coverage_df = pd.read_csv(coverage_path, index_col='sample')
     print(f"[INFO] Normalizing by coverage (per billion bases)")
     for col in df.columns:
         if col in coverage_df.index:
@@ -235,8 +243,9 @@ def plot_mutational_signatures(
         normalized to mutations per billion bases using 'effective_coverage'.
         Errors if the data doesn't look like counts.
         If True, each column is normalized to sum to 1 if it doesn't already.
-    coverage_path : str, optional
-        Required when proportion=False.
+    coverage_path : str or DataFrame, optional
+        Required when proportion=False. A path to a CSV, or a DataFrame, indexed by 'sample'
+        with an 'effective_coverage' column.
     fix_y_axis : bool, default True
         Share the same y-axis range across all plotted samples.
     save_path : str, optional
