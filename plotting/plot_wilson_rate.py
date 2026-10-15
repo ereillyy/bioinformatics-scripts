@@ -70,7 +70,7 @@ def plot_wilson_rate(
             if not np.isnan(rate):
                 label = f'{rate:.0f}'
                 ax.text(i, rate + (np.nanmax(rates) * 0.02 if np.nanmax(rates) else 0), label, ha='center', va='bottom', fontsize=8)
-    ax.set_ylabel(f'Rate: {count_metric} / {denom_metric} (per 1e9)', fontsize=14, fontweight='bold')
+    ax.set_ylabel(rf'Rate: {count_metric} / {denom_metric} (Gb$^{{-1}}$)', fontsize=14, fontweight='bold') #r'Mutations (Gb$^{-1}$)'
     ax.set_xticks(x_pos)
     ax.set_xticklabels(samples, fontsize=12, fontweight='bold', rotation=45, ha='right')
     ax.tick_params(axis='y', labelsize=12)

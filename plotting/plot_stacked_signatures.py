@@ -342,9 +342,9 @@ def plot_stacked_signatures(
     
     # Formatting
     if ylabel is None:
-        ylabel = 'Mutations per billion bases'
+        ylabel = r'Mutations (Gb$^{-1}$)'
         if background_subtraction:
-            ylabel += ' (delta)'
+            ylabel = 'Δ ' + ylabel
     ax.set_ylabel(ylabel, fontsize=14, fontweight='bold')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(plot_samples, fontsize=12, fontweight='bold', rotation=45, ha='right')
